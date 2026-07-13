@@ -1,24 +1,23 @@
 import { query, type CanUseTool, type SDKResultMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { AgentRunResult } from '../../shared/hive/agent'
+import type { PermissionMode } from '../../shared/hive/types'
 import type { AgentProvider, AgentRunInput } from './agent-provider'
 import { classifyOutcome } from './agent-outcome'
+import { getAnthropicApiKey } from './secrets'
 
 /**
  * Tools an automated run may use without a human present to approve them.
  * Everything else (WebFetch, WebSearch, MCP tools, etc.) is denied - v1 has
  * no live approval channel to route an "ask" through, so ungated capabilities
  * are simply not granted rather than left to hang waiting for an answer.
+ *
+ * `safe` never runs a shell; `trusted` adds Bash, for repos/agents the user trusts to run
+ * arbitrary commands (test suites, package installs, etc.) unattended.
  */
-const AUTO_ALLOWED_TOOLS = new Set([
-  'Read',
-  'Write',
-  'Edit',
-  'Glob',
-  'Grep',
-  'Bash',
-  'Task',
-  'TodoWrite'
-])
+const AUTO_ALLOWED_TOOLS: Record<PermissionMode, ReadonlySet<string>> = {
+  safe: new Set(['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Task', 'TodoWrite']),
+  trusted: new Set(['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'Task', 'TodoWrite'])
+}
 
 const MAX_TURNS = 60
 
@@ -26,8 +25,9 @@ export class ClaudeCodeProvider implements AgentProvider {
   readonly id = 'claude-code'
 
   async run(input: AgentRunInput): Promise<AgentRunResult> {
+    const allowedTools = AUTO_ALLOWED_TOOLS[input.permissionMode ?? 'safe']
     const canUseTool: CanUseTool = async (toolName) => {
-      if (AUTO_ALLOWED_TOOLS.has(toolName)) {
+      if (allowedTools.has(toolName)) {
         return { behavior: 'allow' }
       }
       return {
@@ -35,6 +35,8 @@ export class ClaudeCodeProvider implements AgentProvider {
         message: `${toolName} isn't available to automated Hive agent runs yet.`
       }
     }
+
+    const apiKey = await getAnthropicApiKey()
 
     const stream = query({
       prompt: input.prompt,
@@ -44,7 +46,10 @@ export class ClaudeCodeProvider implements AgentProvider {
         permissionMode: 'default',
         canUseTool,
         maxTurns: MAX_TURNS,
-        settingSources: ['project']
+        settingSources: ['project'],
+        // Omitted entirely when no key is configured, so the subprocess inherits process.env
+        // as-is (letting a `claude login` subscription session authenticate normally).
+        env: apiKey ? { ...process.env, ANTHROPIC_API_KEY: apiKey } : undefined
       }
     })
 

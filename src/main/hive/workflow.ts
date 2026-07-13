@@ -42,7 +42,8 @@ export async function applyTransition(
 }
 
 async function ensureWorktree(repo: HiveRepo, ticket: Ticket): Promise<void> {
-  const worktreePath = worktreePathForTicket(repo.repoRoot, ticket.id)
+  const config = await repo.getConfig()
+  const worktreePath = worktreePathForTicket(repo.repoRoot, ticket.id, config.worktreeRoot)
 
   if (ticket.branch) {
     if (!(await pathExists(worktreePath))) {
@@ -53,7 +54,6 @@ async function ensureWorktree(repo: HiveRepo, ticket: Ticket): Promise<void> {
     return
   }
 
-  const config = await repo.getConfig()
   const branch = branchNameForTicket(ticket)
   await createWorktree(repo.repoRoot, worktreePath, branch, config.baseBranch)
   await repo.updateTicket(ticket.id, { branch })
@@ -79,7 +79,7 @@ export async function rebaseTicketOntoBase(repo: HiveRepo, ticketId: string): Pr
     throw new Error(`Ticket "${ticketId}" has no branch/worktree yet`)
   }
   const config = await repo.getConfig()
-  const worktreePath = worktreePathForTicket(repo.repoRoot, ticket.id)
+  const worktreePath = worktreePathForTicket(repo.repoRoot, ticket.id, config.worktreeRoot)
   await rebaseBranchOntoBase(worktreePath, config.baseBranch)
 }
 
@@ -88,7 +88,7 @@ async function resolveTicket(repo: HiveRepo, ticket: Ticket): Promise<void> {
     return
   }
   const config = await repo.getConfig()
-  const worktreePath = worktreePathForTicket(repo.repoRoot, ticket.id)
+  const worktreePath = worktreePathForTicket(repo.repoRoot, ticket.id, config.worktreeRoot)
 
   await mergeTicketBranch(repo.repoRoot, {
     branch: ticket.branch,

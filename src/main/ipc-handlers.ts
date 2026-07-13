@@ -1,7 +1,7 @@
 import { dialog, ipcMain } from 'electron'
 import type { AgentEvent } from '../shared/hive/agent'
 import type { TicketStatus } from '../shared/hive/state-machine'
-import type { NewTicketInput } from '../shared/hive/types'
+import type { HiveConfig, NewTicketInput } from '../shared/hive/types'
 import { IPC_CHANNELS, type TicketUpdateInput } from '../shared/ipc'
 import { broadcastToAllWindows } from './broadcast'
 import { runAgentAndAdvance } from './hive/agent-orchestrator'
@@ -13,6 +13,7 @@ import {
   getTicketDiffOrNull,
   listInlineCommentsWithStaleness
 } from './hive/review'
+import { clearAnthropicApiKey, hasAnthropicApiKey, setAnthropicApiKey } from './hive/secrets'
 import { applyTransition, checkBaseDrift, rebaseTicketOntoBase } from './hive/workflow'
 import {
   cancelActiveRun,
@@ -144,4 +145,26 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.cancelRun, async (_event, ticketId: string) =>
     cancelActiveRun(ticketId)
   )
+
+  ipcMain.handle(IPC_CHANNELS.getConfig, async () => getActiveRepo().getConfig())
+
+  ipcMain.handle(IPC_CHANNELS.setConfig, async (_event, patch: Partial<HiveConfig>) =>
+    getActiveRepo().setConfig(patch)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.pickWorktreeRoot, async () => {
+    const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+    return result.filePaths[0]
+  })
+
+  ipcMain.handle(IPC_CHANNELS.hasApiKey, async () => hasAnthropicApiKey())
+
+  ipcMain.handle(IPC_CHANNELS.setApiKey, async (_event, apiKey: string) =>
+    setAnthropicApiKey(apiKey)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.clearApiKey, async () => clearAnthropicApiKey())
 }

@@ -3,6 +3,7 @@ import type { TicketStatus } from '../../../shared/hive/state-machine'
 import type { Ticket } from '../../../shared/hive/types'
 import Column from './Column'
 import NewTicketForm from './NewTicketForm'
+import SettingsPanel from './SettingsPanel'
 import TicketDetail from './TicketDetail'
 
 const COLUMNS: { status: TicketStatus; label: string }[] = [
@@ -25,6 +26,7 @@ function Board({ repoRoot, onCloseRepo }: BoardProps) {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null)
   const [showNewTicketForm, setShowNewTicketForm] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
@@ -58,6 +60,9 @@ function Board({ repoRoot, onCloseRepo }: BoardProps) {
         <div className="board-actions">
           <button type="button" onClick={() => setShowNewTicketForm(true)}>
             + New ticket
+          </button>
+          <button type="button" className="secondary" onClick={() => setShowSettings(true)}>
+            Settings
           </button>
           <button type="button" className="secondary" onClick={onCloseRepo}>
             Switch repo
@@ -95,6 +100,8 @@ function Board({ repoRoot, onCloseRepo }: BoardProps) {
           onChanged={refresh}
         />
       )}
+
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   )
 }

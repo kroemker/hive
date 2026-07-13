@@ -1,8 +1,11 @@
 import type { AgentEvent, AgentRunResult } from '../../shared/hive/agent'
+import type { PermissionMode } from '../../shared/hive/types'
 
 export interface AgentRunInput {
   prompt: string
   worktreePath: string
+  /** Defaults to the most restrictive mode if omitted. */
+  permissionMode?: PermissionMode
   /** Awaited before the provider processes its next message, so writes stay in order. */
   onEvent: (event: AgentEvent) => void | Promise<void>
   signal?: AbortSignal

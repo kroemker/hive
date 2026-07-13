@@ -44,9 +44,10 @@ export async function runAgentAndAdvance(
     inlineComments: inlineComments.map((comment) => ({ ...comment, stale: false }))
   })
 
+  const config = await repo.getConfig()
   const run = await repo.startRun(ticketId, { agent: provider.id, prompt })
   opts.onRunStarted?.(run.id)
-  const worktreePath = worktreePathForTicket(repo.repoRoot, ticketId)
+  const worktreePath = worktreePathForTicket(repo.repoRoot, ticketId, config.worktreeRoot)
 
   const onEvent = async (event: AgentEvent): Promise<void> => {
     opts.onEvent?.(event)
@@ -54,7 +55,13 @@ export async function runAgentAndAdvance(
   }
 
   try {
-    const result = await provider.run({ prompt, worktreePath, signal: opts.signal, onEvent })
+    const result = await provider.run({
+      prompt,
+      worktreePath,
+      permissionMode: config.permissionMode,
+      signal: opts.signal,
+      onEvent
+    })
 
     await repo.finishRun(ticketId, run.id, {
       endedAt: new Date().toISOString(),

@@ -10,10 +10,17 @@ export function branchNameForTicket(ticket: Pick<Ticket, 'id' | 'title'>): strin
 
 /**
  * Worktrees live outside the repo tree entirely (never under `.hive/`, which is committed) -
- * as a sibling of the repo root, keyed by the repo's own directory name.
+ * by default as a sibling of the repo root, keyed by the repo's own directory name. Pass
+ * `worktreeRoot` (from `HiveConfig.worktreeRoot`) to put them somewhere else instead, e.g. a
+ * faster disk - still keyed by repo name so multiple repos can share one root.
  */
-export function worktreePathForTicket(repoRoot: string, ticketId: string): string {
-  return join(dirname(repoRoot), '.hive-worktrees', basename(repoRoot), ticketId)
+export function worktreePathForTicket(
+  repoRoot: string,
+  ticketId: string,
+  worktreeRoot?: string | null
+): string {
+  const root = worktreeRoot ? worktreeRoot : join(dirname(repoRoot), '.hive-worktrees')
+  return join(root, basename(repoRoot), ticketId)
 }
 
 /** Creates a new branch off `baseBranch` and a worktree checked out onto it. */

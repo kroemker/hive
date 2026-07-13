@@ -21,6 +21,26 @@ describe('branchNameForTicket', () => {
   })
 })
 
+describe('worktreePathForTicket', () => {
+  it('defaults to a .hive-worktrees sibling of the repo root', () => {
+    expect(worktreePathForTicket('/home/user/my-repo', 'ticket-1')).toBe(
+      join('/home/user/.hive-worktrees', 'my-repo', 'ticket-1')
+    )
+  })
+
+  it('uses the configured worktreeRoot override when given', () => {
+    expect(worktreePathForTicket('/home/user/my-repo', 'ticket-1', '/fast-disk/worktrees')).toBe(
+      join('/fast-disk/worktrees', 'my-repo', 'ticket-1')
+    )
+  })
+
+  it('falls back to the default when the override is null', () => {
+    expect(worktreePathForTicket('/home/user/my-repo', 'ticket-1', null)).toBe(
+      join('/home/user/.hive-worktrees', 'my-repo', 'ticket-1')
+    )
+  })
+})
+
 describe('worktree lifecycle', () => {
   let fixture: FixtureRepo | undefined
 

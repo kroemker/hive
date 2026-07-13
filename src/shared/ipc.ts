@@ -3,6 +3,7 @@ import type { TicketStatus } from './hive/state-machine'
 import type {
   Comment,
   HistoryEntry,
+  HiveConfig,
   InlineComment,
   InlineCommentView,
   NewTicketInput,
@@ -32,7 +33,13 @@ export const IPC_CHANNELS = {
   getRunTranscript: 'agent:get-run-transcript',
   cancelRun: 'agent:cancel-run',
   agentEvent: 'agent:event',
-  ticketChanged: 'tickets:changed'
+  ticketChanged: 'tickets:changed',
+  getConfig: 'settings:get-config',
+  setConfig: 'settings:set-config',
+  pickWorktreeRoot: 'settings:pick-worktree-root',
+  hasApiKey: 'settings:has-api-key',
+  setApiKey: 'settings:set-api-key',
+  clearApiKey: 'settings:clear-api-key'
 } as const
 
 /** Pushed from main to renderer while a run is in progress (not request/response). */
@@ -90,4 +97,12 @@ export interface HiveApi {
   onAgentEvent: (listener: (message: AgentEventMessage) => void) => () => void
   /** Subscribes to background ticket changes (e.g. an agent run finishing); returns an unsubscribe function. */
   onTicketChanged: (listener: (message: TicketChangedMessage) => void) => () => void
+  getConfig: () => Promise<HiveConfig>
+  setConfig: (patch: Partial<HiveConfig>) => Promise<HiveConfig>
+  /** Opens a native folder picker for the worktree-location override. */
+  pickWorktreeRoot: () => Promise<string | null>
+  /** Whether an Anthropic API key is currently stored - never returns the key itself. */
+  hasApiKey: () => Promise<boolean>
+  setApiKey: (apiKey: string) => Promise<void>
+  clearApiKey: () => Promise<void>
 }

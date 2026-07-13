@@ -41,7 +41,13 @@ const api: HiveApi = {
       listener(message)
     ipcRenderer.on(IPC_CHANNELS.ticketChanged, handler)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.ticketChanged, handler)
-  }
+  },
+  getConfig: () => ipcRenderer.invoke(IPC_CHANNELS.getConfig),
+  setConfig: (patch) => ipcRenderer.invoke(IPC_CHANNELS.setConfig, patch),
+  pickWorktreeRoot: () => ipcRenderer.invoke(IPC_CHANNELS.pickWorktreeRoot),
+  hasApiKey: () => ipcRenderer.invoke(IPC_CHANNELS.hasApiKey),
+  setApiKey: (apiKey) => ipcRenderer.invoke(IPC_CHANNELS.setApiKey, apiKey),
+  clearApiKey: () => ipcRenderer.invoke(IPC_CHANNELS.clearApiKey)
 }
 
 contextBridge.exposeInMainWorld('hive', api)

@@ -5,6 +5,11 @@ export type Priority = 'low' | 'medium' | 'high'
 export type Actor = 'human' | 'agent' | 'system'
 export type RunOutcome = 'success' | 'failed' | 'needs_clarification'
 export type MergeStrategy = 'merge-commit' | 'squash' | 'rebase'
+/**
+ * `safe` keeps agent runs to read/edit/search tools only (no shell). `trusted` additionally
+ * allows Bash and web access - only meaningful once the user trusts the repo/agent combination.
+ */
+export type PermissionMode = 'safe' | 'trusted'
 
 /** The YAML front-matter of a ticket's `ticket.md`. */
 export interface TicketFrontMatter {
@@ -105,13 +110,18 @@ export interface RunMeta {
   costUsd?: number
 }
 
-/** `.hive/config.yaml` */
+/** `.hive/config.yaml` - checked into the repo, so no secrets belong here. */
 export interface HiveConfig {
   baseBranch: string
   mergeStrategy: MergeStrategy
+  permissionMode: PermissionMode
+  /** Overrides where ticket worktrees are created. `null` uses the default sibling directory. */
+  worktreeRoot: string | null
 }
 
 export const DEFAULT_HIVE_CONFIG: HiveConfig = {
   baseBranch: 'main',
-  mergeStrategy: 'squash'
+  mergeStrategy: 'squash',
+  permissionMode: 'safe',
+  worktreeRoot: null
 }
