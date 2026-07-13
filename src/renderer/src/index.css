@@ -302,6 +302,42 @@ label {
   margin: 0;
 }
 
+.clarification-banner,
+.failed-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-radius: 8px;
+  padding: 0.8rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.clarification-banner {
+  background: rgba(79, 85, 144, 0.1);
+  border: 1px solid #4f5590;
+}
+
+.failed-banner {
+  background: rgba(161, 74, 55, 0.1);
+  border: 1px solid var(--danger);
+}
+
+.clarification-banner h3,
+.failed-banner h3 {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.clarification-question,
+.failed-summary {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.clarification-banner textarea {
+  width: 100%;
+}
+
 .comment-list,
 .history-list {
   list-style: none;

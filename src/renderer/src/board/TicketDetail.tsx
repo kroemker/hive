@@ -23,6 +23,7 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
   const [labels, setLabels] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
   const [newComment, setNewComment] = useState('')
+  const [answerDraft, setAnswerDraft] = useState('')
   const [baseDrift, setBaseDrift] = useState(0)
   const [showDiffReview, setShowDiffReview] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -114,6 +115,39 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
     }
   }
 
+  async function handleAnswerAndResume(): Promise<void> {
+    if (!answerDraft.trim()) {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      await window.hive.addComment(ticketId, answerDraft.trim())
+      await window.hive.transitionTicket(ticketId, 'implementation')
+      setAnswerDraft('')
+      await load()
+      onChanged()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleRetry(): Promise<void> {
+    setBusy(true)
+    setError(null)
+    try {
+      await window.hive.transitionTicket(ticketId, 'implementation')
+      await load()
+      onChanged()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function handleAddComment(): Promise<void> {
     if (!newComment.trim()) {
       return
@@ -147,6 +181,7 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
   }
 
   const nextStatuses = TICKET_STATUSES.filter((status) => canTransition(ticket.status, status))
+  const lastAgentComment = [...comments].reverse().find((comment) => comment.author === 'agent')
 
   return (
     <div className="overlay" role="dialog" aria-modal="true">
@@ -177,6 +212,38 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
             <button type="button" className="secondary" onClick={handleRebase} disabled={busy}>
               Rebase onto base
             </button>
+          </div>
+        )}
+
+        {ticket.status === 'clarification' && (
+          <div className="clarification-banner">
+            <h3>The agent needs clarification</h3>
+            <p className="clarification-question">
+              {lastAgentComment?.body ?? 'The agent paused but left no question.'}
+            </p>
+            <textarea
+              rows={3}
+              value={answerDraft}
+              onChange={(e) => setAnswerDraft(e.target.value)}
+              placeholder="Answer the agent's question…"
+            />
+            <div className="panel-actions">
+              <button type="button" disabled={busy || !answerDraft.trim()} onClick={handleAnswerAndResume}>
+                Answer &amp; resume
+              </button>
+            </div>
+          </div>
+        )}
+
+        {ticket.status === 'failed' && (
+          <div className="failed-banner">
+            <h3>Run failed</h3>
+            <p className="failed-summary">{lastAgentComment?.body ?? 'The run failed.'}</p>
+            <div className="panel-actions">
+              <button type="button" disabled={busy} onClick={handleRetry}>
+                Retry
+              </button>
+            </div>
           </div>
         )}
 
@@ -214,23 +281,25 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
 
         {error && <p className="error">{error}</p>}
 
-        <section>
-          <h3>Move to</h3>
-          <div className="transition-actions">
-            {nextStatuses.length === 0 && <p className="hint">No transitions available.</p>}
-            {nextStatuses.map((status) => (
-              <button
-                key={status}
-                type="button"
-                className="secondary"
-                disabled={busy}
-                onClick={() => handleTransition(status)}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-        </section>
+        {ticket.status !== 'clarification' && ticket.status !== 'failed' && (
+          <section>
+            <h3>Move to</h3>
+            <div className="transition-actions">
+              {nextStatuses.length === 0 && <p className="hint">No transitions available.</p>}
+              {nextStatuses.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => handleTransition(status)}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <AgentRunsPanel ticketId={ticket.id} />
 
