@@ -97,6 +97,42 @@ export interface TicketDiff {
   files: DiffFile[]
 }
 
+/** A user-configured build/lint/test command run automatically on entering `code-review`. */
+export interface CheckDefinition {
+  name: string
+  command: string
+}
+
+/** The outcome of running one `CheckDefinition` against a ticket's worktree. */
+export interface CheckResult {
+  name: string
+  command: string
+  exitCode: number
+  output: string
+  ranAt: string
+}
+
+/** A starting point for a new ticket's body, offered in the "new ticket" form. */
+export interface TicketTemplate {
+  id: string
+  label: string
+  body: string
+}
+
+export const TICKET_TEMPLATES: TicketTemplate[] = [
+  { id: 'blank', label: 'Blank', body: '' },
+  {
+    id: 'bug',
+    label: 'Bug report',
+    body: '## Steps to reproduce\n\n## Expected behavior\n\n## Actual behavior\n'
+  },
+  {
+    id: 'feature',
+    label: 'Feature request',
+    body: '## Problem\n\n## Proposed solution\n\n## Acceptance criteria\n'
+  }
+]
+
 /** `runs/<run-id>/meta.yaml` — populated fully once agent execution lands (Phase 5). */
 export interface RunMeta {
   id: string
@@ -117,11 +153,17 @@ export interface HiveConfig {
   permissionMode: PermissionMode
   /** Overrides where ticket worktrees are created. `null` uses the default sibling directory. */
   worktreeRoot: string | null
+  /** Build/lint/test commands run in the worktree when a ticket enters `code-review`. */
+  checks: CheckDefinition[]
+  /** Command used to open a ticket's worktree (e.g. `code`, `subl`). `null` opens it in the OS file manager. */
+  editorCommand: string | null
 }
 
 export const DEFAULT_HIVE_CONFIG: HiveConfig = {
   baseBranch: 'main',
   mergeStrategy: 'squash',
   permissionMode: 'safe',
-  worktreeRoot: null
+  worktreeRoot: null,
+  checks: [],
+  editorCommand: null
 }

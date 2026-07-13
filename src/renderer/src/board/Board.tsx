@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { TicketStatus } from '../../../shared/hive/state-machine'
-import type { Ticket } from '../../../shared/hive/types'
+import type { Priority, Ticket } from '../../../shared/hive/types'
 import Column from './Column'
 import NewTicketForm from './NewTicketForm'
 import SettingsPanel from './SettingsPanel'
@@ -28,6 +28,9 @@ function Board({ repoRoot, onCloseRepo }: BoardProps) {
   const [showNewTicketForm, setShowNewTicketForm] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [labelFilter, setLabelFilter] = useState('')
+  const [priorityFilter, setPriorityFilter] = useState<Priority | ''>('')
 
   const refresh = useCallback(async () => {
     try {
@@ -49,6 +52,27 @@ function Board({ repoRoot, onCloseRepo }: BoardProps) {
       refresh()
     })
   }, [refresh])
+
+  const allLabels = useMemo(
+    () => Array.from(new Set(tickets.flatMap((ticket) => ticket.labels))).sort(),
+    [tickets]
+  )
+
+  const filteredTickets = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return tickets.filter((ticket) => {
+      if (query && !ticket.title.toLowerCase().includes(query) && !ticket.id.includes(query)) {
+        return false
+      }
+      if (labelFilter && !ticket.labels.includes(labelFilter)) {
+        return false
+      }
+      if (priorityFilter && ticket.priority !== priorityFilter) {
+        return false
+      }
+      return true
+    })
+  }, [tickets, search, labelFilter, priorityFilter])
 
   return (
     <div className="board">
@@ -72,12 +96,37 @@ function Board({ repoRoot, onCloseRepo }: BoardProps) {
 
       {error && <p className="error">{error}</p>}
 
+      <div className="board-filters">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by title or id…"
+        />
+        <select value={labelFilter} onChange={(e) => setLabelFilter(e.target.value)}>
+          <option value="">All labels</option>
+          {allLabels.map((label) => (
+            <option key={label} value={label}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={priorityFilter}
+          onChange={(e) => setPriorityFilter(e.target.value as Priority | '')}
+        >
+          <option value="">All priorities</option>
+          <option value="low">low</option>
+          <option value="medium">medium</option>
+          <option value="high">high</option>
+        </select>
+      </div>
+
       <div className="columns">
         {COLUMNS.map(({ status, label }) => (
           <Column
             key={status}
             label={label}
-            tickets={tickets.filter((ticket) => ticket.status === status)}
+            tickets={filteredTickets.filter((ticket) => ticket.status === status)}
             onSelect={setSelectedTicketId}
           />
         ))}

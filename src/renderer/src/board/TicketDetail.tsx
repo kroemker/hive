@@ -102,6 +102,18 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
     }
   }
 
+  async function handleOpenWorktree(): Promise<void> {
+    setBusy(true)
+    setError(null)
+    try {
+      await window.hive.openTicketWorktree(ticketId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function handleRebase(): Promise<void> {
     setBusy(true)
     setError(null)
@@ -195,6 +207,11 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
             {(ticket.branch || ticket.type === 'informational') && (
               <button type="button" className="secondary" onClick={() => setShowDiffReview(true)}>
                 Review {ticket.type === 'informational' ? 'result' : 'diff'}
+              </button>
+            )}
+            {ticket.branch && (
+              <button type="button" className="secondary" disabled={busy} onClick={handleOpenWorktree}>
+                Open worktree
               </button>
             )}
             <button type="button" className="secondary" onClick={onClose}>

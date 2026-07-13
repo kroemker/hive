@@ -126,6 +126,48 @@ describe('applyTransition', () => {
   })
 })
 
+describe('pre-review checks on entering code-review', () => {
+  let fixture: FixtureRepo | undefined
+
+  afterEach(async () => {
+    await fixture?.cleanup()
+    fixture = undefined
+  })
+
+  it('does nothing when no checks are configured', async () => {
+    fixture = await createFixtureRepo()
+    const repo = await HiveRepo.init(fixture.repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+    await repo.transitionTicket(ticket.id, 'ready-for-implementation')
+    await applyTransition(repo, ticket.id, 'implementation')
+
+    await applyTransition(repo, ticket.id, 'code-review')
+
+    expect(await repo.getCheckResults(ticket.id)).toEqual([])
+  })
+
+  it('runs configured checks in the worktree and stores pass/fail results', async () => {
+    fixture = await createFixtureRepo()
+    const repo = await HiveRepo.init(fixture.repoRoot)
+    await repo.setConfig({
+      checks: [
+        { name: 'Lint', command: 'true' },
+        { name: 'Test', command: 'false' }
+      ]
+    })
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+    await repo.transitionTicket(ticket.id, 'ready-for-implementation')
+    await applyTransition(repo, ticket.id, 'implementation')
+
+    await applyTransition(repo, ticket.id, 'code-review')
+
+    const results = await repo.getCheckResults(ticket.id)
+    expect(results).toHaveLength(2)
+    expect(results[0]).toMatchObject({ name: 'Lint', command: 'true', exitCode: 0 })
+    expect(results[1]).toMatchObject({ name: 'Test', command: 'false', exitCode: 1 })
+  })
+})
+
 describe('checkBaseDrift and rebaseTicketOntoBase', () => {
   let fixture: FixtureRepo | undefined
 

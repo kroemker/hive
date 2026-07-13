@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import type { NewTicketInput, Priority, TicketType } from '../../../shared/hive/types'
+import { TICKET_TEMPLATES, type NewTicketInput, type Priority, type TicketType } from '../../../shared/hive/types'
 
 interface NewTicketFormProps {
   onCancel: () => void
@@ -11,9 +11,16 @@ function NewTicketForm({ onCancel, onCreated }: NewTicketFormProps) {
   const [type, setType] = useState<TicketType>('code')
   const [priority, setPriority] = useState<Priority>('medium')
   const [labels, setLabels] = useState('')
+  const [templateId, setTemplateId] = useState(TICKET_TEMPLATES[0].id)
   const [body, setBody] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  function handleTemplateChange(id: string): void {
+    setTemplateId(id)
+    const template = TICKET_TEMPLATES.find((t) => t.id === id)
+    setBody(template?.body ?? '')
+  }
 
   async function handleSubmit(event: FormEvent): Promise<void> {
     event.preventDefault()
@@ -83,6 +90,17 @@ function NewTicketForm({ onCancel, onCreated }: NewTicketFormProps) {
             onChange={(e) => setLabels(e.target.value)}
             placeholder="ui, backend"
           />
+        </label>
+
+        <label>
+          Template
+          <select value={templateId} onChange={(e) => handleTemplateChange(e.target.value)}>
+            {TICKET_TEMPLATES.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.label}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label>

@@ -6,6 +6,8 @@ import { IPC_CHANNELS, type TicketUpdateInput } from '../shared/ipc'
 import { broadcastToAllWindows } from './broadcast'
 import { runAgentAndAdvance } from './hive/agent-orchestrator'
 import { ClaudeCodeProvider } from './hive/claude-code-provider'
+import { openTicketWorktree } from './hive/editor'
+import { notifyRunFinished } from './hive/notifications'
 import { findRepoRoot } from './hive/paths'
 import { HiveRepo } from './hive/repo'
 import {
@@ -40,6 +42,9 @@ function startAgentRunInBackground(repo: HiveRepo, ticketId: string): void {
       broadcastToAllWindows(IPC_CHANNELS.agentEvent, { ticketId, runId, event })
     }
   })
+    .then((ticket) => {
+      notifyRunFinished(ticket)
+    })
     .catch((err: unknown) => {
       console.error(`Agent run failed for ticket ${ticketId}:`, err)
     })
@@ -167,4 +172,12 @@ export function registerIpcHandlers(): void {
   )
 
   ipcMain.handle(IPC_CHANNELS.clearApiKey, async () => clearAnthropicApiKey())
+
+  ipcMain.handle(IPC_CHANNELS.getCheckResults, async (_event, ticketId: string) =>
+    getActiveRepo().getCheckResults(ticketId)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.openTicketWorktree, async (_event, ticketId: string) =>
+    openTicketWorktree(getActiveRepo(), ticketId)
+  )
 }

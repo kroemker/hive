@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { MergeStrategy, PermissionMode } from '../../../shared/hive/types'
+import type { CheckDefinition, MergeStrategy, PermissionMode } from '../../../shared/hive/types'
 
 interface SettingsPanelProps {
   onClose: () => void
@@ -10,6 +10,8 @@ function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [mergeStrategy, setMergeStrategy] = useState<MergeStrategy>('squash')
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('safe')
   const [worktreeRoot, setWorktreeRoot] = useState<string | null>(null)
+  const [checks, setChecks] = useState<CheckDefinition[]>([])
+  const [editorCommand, setEditorCommand] = useState('')
   const [hasApiKey, setHasApiKey] = useState(false)
   const [apiKeyDraft, setApiKeyDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -21,6 +23,8 @@ function SettingsPanel({ onClose }: SettingsPanelProps) {
     setMergeStrategy(config.mergeStrategy)
     setPermissionMode(config.permissionMode)
     setWorktreeRoot(config.worktreeRoot)
+    setChecks(config.checks)
+    setEditorCommand(config.editorCommand ?? '')
     setHasApiKey(keyPresent)
   }, [])
 
@@ -39,13 +43,27 @@ function SettingsPanel({ onClose }: SettingsPanelProps) {
         baseBranch: baseBranch.trim(),
         mergeStrategy,
         permissionMode,
-        worktreeRoot
+        worktreeRoot,
+        checks: checks.filter((check) => check.name.trim() && check.command.trim()),
+        editorCommand: editorCommand.trim() || null
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setBusy(false)
     }
+  }
+
+  function handleAddCheck(): void {
+    setChecks((current) => [...current, { name: '', command: '' }])
+  }
+
+  function handleUpdateCheck(index: number, patch: Partial<CheckDefinition>): void {
+    setChecks((current) => current.map((check, i) => (i === index ? { ...check, ...patch } : check)))
+  }
+
+  function handleRemoveCheck(index: number): void {
+    setChecks((current) => current.filter((_, i) => i !== index))
   }
 
   async function handlePickWorktreeRoot(): Promise<void> {
@@ -152,6 +170,48 @@ function SettingsPanel({ onClose }: SettingsPanelProps) {
             Trusted mode lets the agent run arbitrary shell commands (tests, builds, package
             installs) unattended. Only use it for repos and agents you trust.
           </p>
+        </section>
+
+        <section>
+          <h3>Pre-review checks</h3>
+          <p className="hint">
+            Run automatically in the ticket&apos;s worktree when it enters code review, and shown
+            alongside the diff.
+          </p>
+          <ul className="check-editor-list">
+            {checks.map((check, index) => (
+              <li key={index} className="field-row">
+                <input
+                  value={check.name}
+                  placeholder="Name (e.g. Lint)"
+                  onChange={(e) => handleUpdateCheck(index, { name: e.target.value })}
+                />
+                <input
+                  value={check.command}
+                  placeholder="Command (e.g. npm run lint)"
+                  onChange={(e) => handleUpdateCheck(index, { command: e.target.value })}
+                />
+                <button type="button" className="secondary" onClick={() => handleRemoveCheck(index)}>
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="secondary" onClick={handleAddCheck}>
+            + Add check
+          </button>
+        </section>
+
+        <section>
+          <h3>Editor</h3>
+          <label>
+            Editor command
+            <input
+              value={editorCommand}
+              placeholder="Default: open in the OS file manager (e.g. code, subl)"
+              onChange={(e) => setEditorCommand(e.target.value)}
+            />
+          </label>
         </section>
 
         <div className="panel-actions">

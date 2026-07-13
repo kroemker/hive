@@ -47,7 +47,9 @@ const api: HiveApi = {
   pickWorktreeRoot: () => ipcRenderer.invoke(IPC_CHANNELS.pickWorktreeRoot),
   hasApiKey: () => ipcRenderer.invoke(IPC_CHANNELS.hasApiKey),
   setApiKey: (apiKey) => ipcRenderer.invoke(IPC_CHANNELS.setApiKey, apiKey),
-  clearApiKey: () => ipcRenderer.invoke(IPC_CHANNELS.clearApiKey)
+  clearApiKey: () => ipcRenderer.invoke(IPC_CHANNELS.clearApiKey),
+  getCheckResults: (ticketId) => ipcRenderer.invoke(IPC_CHANNELS.getCheckResults, ticketId),
+  openTicketWorktree: (ticketId) => ipcRenderer.invoke(IPC_CHANNELS.openTicketWorktree, ticketId)
 }
 
 contextBridge.exposeInMainWorld('hive', api)

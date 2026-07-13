@@ -1,5 +1,6 @@
 import type { TicketStatus } from '../../shared/hive/state-machine'
 import type { Ticket } from '../../shared/hive/types'
+import { runChecks } from './checks'
 import { mergeTicketBranch } from './merge'
 import { pathExists } from './paths'
 import { HiveRepo, TicketNotFoundError } from './repo'
@@ -34,11 +35,26 @@ export async function applyTransition(
     await ensureWorktree(repo, ticket)
   }
 
+  if (to === 'code-review' && ticket.branch) {
+    await runChecksForTicket(repo, ticket)
+  }
+
   if (to === 'resolved' && ticket.branch) {
     await resolveTicket(repo, ticket)
   }
 
   return repo.transitionTicket(ticketId, to, opts)
+}
+
+/** Runs the repo's configured pre-review checks and stores the results, if any are configured. */
+async function runChecksForTicket(repo: HiveRepo, ticket: Ticket): Promise<void> {
+  const config = await repo.getConfig()
+  if (config.checks.length === 0) {
+    return
+  }
+  const worktreePath = worktreePathForTicket(repo.repoRoot, ticket.id, config.worktreeRoot)
+  const results = await runChecks(worktreePath, config.checks)
+  await repo.setCheckResults(ticket.id, results)
 }
 
 async function ensureWorktree(repo: HiveRepo, ticket: Ticket): Promise<void> {

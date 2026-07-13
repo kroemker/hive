@@ -112,6 +112,17 @@ label {
   gap: 0.5rem;
 }
 
+.board-filters {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 1.5rem;
+}
+
+.board-filters input {
+  flex: 1;
+  min-width: 0;
+}
+
 .columns {
   flex: 1;
   display: flex;
@@ -706,4 +717,40 @@ button.secondary.small {
   border-radius: 6px;
   padding: 0.5rem 0.7rem;
   margin: 0.3rem 0 0;
+}
+
+.check-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.check-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  background: var(--surface);
+  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.check-name {
+  font-weight: 600;
+}
+
+.check-editor-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }

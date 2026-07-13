@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { parseUnifiedDiff, type ParsedDiffLine } from '../../../shared/hive/diff-parse'
-import type { DiffFile, InlineCommentView, Ticket, TicketDiff } from '../../../shared/hive/types'
+import type {
+  CheckResult,
+  DiffFile,
+  InlineCommentView,
+  Ticket,
+  TicketDiff
+} from '../../../shared/hive/types'
 
 interface DiffReviewProps {
   ticket: Ticket
@@ -11,6 +17,8 @@ interface DiffReviewProps {
 function DiffReview({ ticket, onClose, onChanged }: DiffReviewProps) {
   const [diff, setDiff] = useState<TicketDiff | null>(null)
   const [comments, setComments] = useState<InlineCommentView[]>([])
+  const [checks, setChecks] = useState<CheckResult[]>([])
+  const [expandedCheck, setExpandedCheck] = useState<string | null>(null)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [composerLine, setComposerLine] = useState<number | null>(null)
   const [draft, setDraft] = useState('')
@@ -18,12 +26,14 @@ function DiffReview({ ticket, onClose, onChanged }: DiffReviewProps) {
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
-    const [loadedDiff, loadedComments] = await Promise.all([
+    const [loadedDiff, loadedComments, loadedChecks] = await Promise.all([
       window.hive.getTicketDiff(ticket.id),
-      window.hive.listInlineComments(ticket.id)
+      window.hive.listInlineComments(ticket.id),
+      window.hive.getCheckResults(ticket.id)
     ])
     setDiff(loadedDiff)
     setComments(loadedComments)
+    setChecks(loadedChecks)
     setSelectedPath((current) => current ?? loadedDiff?.files[0]?.path ?? null)
   }, [ticket.id])
 
@@ -105,6 +115,32 @@ function DiffReview({ ticket, onClose, onChanged }: DiffReviewProps) {
         </header>
 
         {error && <p className="error">{error}</p>}
+
+        {checks.length > 0 && (
+          <section className="checks-panel">
+            <h3>Checks</h3>
+            <ul className="check-list">
+              {checks.map((check) => (
+                <li key={check.name}>
+                  <button
+                    type="button"
+                    className="check-summary"
+                    onClick={() => setExpandedCheck((current) => (current === check.name ? null : check.name))}
+                  >
+                    <span className={`outcome-badge outcome-${check.exitCode === 0 ? 'success' : 'failed'}`}>
+                      {check.exitCode === 0 ? 'pass' : 'fail'}
+                    </span>
+                    <span className="check-name">{check.name}</span>
+                    <span className="hint">{check.command}</span>
+                  </button>
+                  {expandedCheck === check.name && (
+                    <pre className="run-transcript">{check.output || '(no output)'}</pre>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {ticket.type === 'informational' ? (
           <section className="diff-body">

@@ -1,6 +1,7 @@
 import type { AgentEvent } from './hive/agent'
 import type { TicketStatus } from './hive/state-machine'
 import type {
+  CheckResult,
   Comment,
   HistoryEntry,
   HiveConfig,
@@ -39,7 +40,9 @@ export const IPC_CHANNELS = {
   pickWorktreeRoot: 'settings:pick-worktree-root',
   hasApiKey: 'settings:has-api-key',
   setApiKey: 'settings:set-api-key',
-  clearApiKey: 'settings:clear-api-key'
+  clearApiKey: 'settings:clear-api-key',
+  getCheckResults: 'tickets:get-check-results',
+  openTicketWorktree: 'tickets:open-worktree'
 } as const
 
 /** Pushed from main to renderer while a run is in progress (not request/response). */
@@ -105,4 +108,8 @@ export interface HiveApi {
   hasApiKey: () => Promise<boolean>
   setApiKey: (apiKey: string) => Promise<void>
   clearApiKey: () => Promise<void>
+  /** Results of the repo's configured pre-review checks, from the ticket's last code-review entry. */
+  getCheckResults: (ticketId: string) => Promise<CheckResult[]>
+  /** Opens the ticket's worktree in the configured editor, or the OS file manager if none is set. */
+  openTicketWorktree: (ticketId: string) => Promise<void>
 }

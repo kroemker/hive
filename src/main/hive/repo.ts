@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { canTransition, type TicketStatus } from '../../shared/hive/state-machine'
 import type {
   Actor,
+  CheckResult,
   Comment,
   HistoryEntry,
   HiveConfig,
@@ -73,6 +74,10 @@ export class HiveRepo {
 
   private reviewPath(id: string): string {
     return join(this.ticketDir(id), 'review.json')
+  }
+
+  private checksPath(id: string): string {
+    return join(this.ticketDir(id), 'checks.json')
   }
 
   private runsDir(id: string): string {
@@ -262,6 +267,15 @@ export class HiveRepo {
     comments[index] = { ...comments[index], resolved }
     await writeJsonArray(this.reviewPath(id), comments)
     return comments[index]
+  }
+
+  /** Overwrites the ticket's stored pre-review check results (one run replaces the last). */
+  async setCheckResults(id: string, results: CheckResult[]): Promise<void> {
+    await writeJsonArray(this.checksPath(id), results)
+  }
+
+  async getCheckResults(id: string): Promise<CheckResult[]> {
+    return readJsonArray<CheckResult>(this.checksPath(id))
   }
 
   /** Starts a new agent run: allocates a run id, writes the prompt, bumps runCount. */
