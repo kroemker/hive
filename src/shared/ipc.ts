@@ -1,5 +1,13 @@
 import type { TicketStatus } from './hive/state-machine'
-import type { Comment, HistoryEntry, NewTicketInput, Ticket } from './hive/types'
+import type {
+  Comment,
+  HistoryEntry,
+  InlineComment,
+  InlineCommentView,
+  NewTicketInput,
+  Ticket,
+  TicketDiff
+} from './hive/types'
 
 export const IPC_CHANNELS = {
   pickRepoFolder: 'repo:pick-folder',
@@ -13,7 +21,11 @@ export const IPC_CHANNELS = {
   addComment: 'comments:add',
   listHistory: 'history:list',
   checkBaseDrift: 'tickets:check-base-drift',
-  rebaseTicketOntoBase: 'tickets:rebase-onto-base'
+  rebaseTicketOntoBase: 'tickets:rebase-onto-base',
+  getTicketDiff: 'tickets:get-diff',
+  listInlineComments: 'review:list-comments',
+  addInlineComment: 'review:add-comment',
+  setInlineCommentResolved: 'review:set-comment-resolved'
 } as const
 
 export type TicketUpdateInput = Partial<Pick<Ticket, 'title' | 'body' | 'labels' | 'priority'>>
@@ -39,4 +51,16 @@ export interface HiveApi {
   checkBaseDrift: (ticketId: string) => Promise<number>
   /** Replays a ticket's branch onto the latest base, without changing its status. */
   rebaseTicketOntoBase: (ticketId: string) => Promise<void>
+  /** The ticket's diff against base, or null if it has no branch yet. */
+  getTicketDiff: (ticketId: string) => Promise<TicketDiff | null>
+  listInlineComments: (ticketId: string) => Promise<InlineCommentView[]>
+  addInlineComment: (
+    ticketId: string,
+    input: { filePath: string; line: number; body: string }
+  ) => Promise<InlineComment>
+  setInlineCommentResolved: (
+    ticketId: string,
+    commentId: string,
+    resolved: boolean
+  ) => Promise<InlineComment>
 }

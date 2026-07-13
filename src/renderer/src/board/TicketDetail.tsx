@@ -5,6 +5,7 @@ import {
   type TicketStatus
 } from '../../../shared/hive/state-machine'
 import type { Comment, HistoryEntry, Priority, Ticket } from '../../../shared/hive/types'
+import DiffReview from './DiffReview'
 
 interface TicketDetailProps {
   ticketId: string
@@ -22,6 +23,7 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
   const [priority, setPriority] = useState<Priority>('medium')
   const [newComment, setNewComment] = useState('')
   const [baseDrift, setBaseDrift] = useState(0)
+  const [showDiffReview, setShowDiffReview] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -145,9 +147,16 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
             <span className="ticket-id">{ticket.id}</span>
             <span className={`status-badge status-${ticket.status}`}>{ticket.status}</span>
           </div>
-          <button type="button" className="secondary" onClick={onClose}>
-            Close
-          </button>
+          <div className="board-actions">
+            {(ticket.branch || ticket.type === 'informational') && (
+              <button type="button" className="secondary" onClick={() => setShowDiffReview(true)}>
+                Review {ticket.type === 'informational' ? 'result' : 'diff'}
+              </button>
+            )}
+            <button type="button" className="secondary" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </header>
 
         {baseDrift > 0 && (
@@ -253,6 +262,17 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
           </ul>
         </section>
       </div>
+
+      {showDiffReview && (
+        <DiffReview
+          ticket={ticket}
+          onClose={() => setShowDiffReview(false)}
+          onChanged={async () => {
+            await load()
+            onChanged()
+          }}
+        />
+      )}
     </div>
   )
 }

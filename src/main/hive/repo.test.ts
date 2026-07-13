@@ -153,4 +153,60 @@ describe('HiveRepo', () => {
     expect(raw).toContain('title: Add dark mode')
     expect(raw).toContain('## Description')
   })
+
+  it('records inline review comments, unresolved by default', async () => {
+    const repo = await HiveRepo.init(repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+
+    const comment = await repo.addInlineComment(ticket.id, {
+      filePath: 'src/theme.ts',
+      line: 12,
+      anchorSha: 'abc123',
+      author: 'human',
+      body: 'This should use the existing color token.'
+    })
+
+    expect(comment.resolved).toBe(false)
+    expect(await repo.listInlineComments(ticket.id)).toEqual([comment])
+  })
+
+  it('addInlineComment throws TicketNotFoundError for an unknown id', async () => {
+    const repo = await HiveRepo.init(repoRoot)
+    await expect(
+      repo.addInlineComment('ticket-404', {
+        filePath: 'a.ts',
+        line: 1,
+        anchorSha: 'abc',
+        author: 'human',
+        body: 'hi'
+      })
+    ).rejects.toBeInstanceOf(TicketNotFoundError)
+  })
+
+  it('resolves and unresolves an inline comment thread in place', async () => {
+    const repo = await HiveRepo.init(repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+    const comment = await repo.addInlineComment(ticket.id, {
+      filePath: 'src/theme.ts',
+      line: 12,
+      anchorSha: 'abc123',
+      author: 'human',
+      body: 'Please fix'
+    })
+
+    const resolved = await repo.setInlineCommentResolved(ticket.id, comment.id, true)
+    expect(resolved.resolved).toBe(true)
+    expect((await repo.listInlineComments(ticket.id))[0].resolved).toBe(true)
+
+    const unresolved = await repo.setInlineCommentResolved(ticket.id, comment.id, false)
+    expect(unresolved.resolved).toBe(false)
+  })
+
+  it('setInlineCommentResolved throws for an unknown comment id', async () => {
+    const repo = await HiveRepo.init(repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+    await expect(
+      repo.setInlineCommentResolved(ticket.id, 'no-such-comment', true)
+    ).rejects.toThrow(/not found/)
+  })
 })

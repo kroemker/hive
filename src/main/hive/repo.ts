@@ -6,6 +6,7 @@ import type {
   Comment,
   HistoryEntry,
   HiveConfig,
+  InlineComment,
   NewTicketInput,
   Ticket
 } from '../../shared/hive/types'
@@ -13,6 +14,7 @@ import { DEFAULT_HIVE_CONFIG } from '../../shared/hive/types'
 import { readConfig, writeConfig } from './config'
 import { nextTicketId, randomId } from './ids'
 import { appendJsonl, readJsonl } from './jsonl'
+import { readJsonArray, writeJsonArray } from './json-file'
 import { pathExists } from './paths'
 import { parseTicketFile, serializeTicketFile } from './ticket-file'
 
@@ -65,6 +67,10 @@ export class HiveRepo {
 
   private historyPath(id: string): string {
     return join(this.ticketDir(id), 'history.jsonl')
+  }
+
+  private reviewPath(id: string): string {
+    return join(this.ticketDir(id), 'review.json')
   }
 
   /** Creates `.hive/` (and a default config) if one doesn't already exist. */
@@ -208,6 +214,44 @@ export class HiveRepo {
 
   async listHistory(id: string): Promise<HistoryEntry[]> {
     return readJsonl<HistoryEntry>(this.historyPath(id))
+  }
+
+  async listInlineComments(id: string): Promise<InlineComment[]> {
+    return readJsonArray<InlineComment>(this.reviewPath(id))
+  }
+
+  async addInlineComment(
+    id: string,
+    comment: { filePath: string; line: number; anchorSha: string; author: Actor; body: string }
+  ): Promise<InlineComment> {
+    if (!(await this.getTicket(id))) {
+      throw new TicketNotFoundError(id)
+    }
+    const entry: InlineComment = {
+      id: randomId(),
+      ...comment,
+      createdAt: new Date().toISOString(),
+      resolved: false
+    }
+    const comments = await this.listInlineComments(id)
+    comments.push(entry)
+    await writeJsonArray(this.reviewPath(id), comments)
+    return entry
+  }
+
+  async setInlineCommentResolved(
+    id: string,
+    commentId: string,
+    resolved: boolean
+  ): Promise<InlineComment> {
+    const comments = await this.listInlineComments(id)
+    const index = comments.findIndex((c) => c.id === commentId)
+    if (index === -1) {
+      throw new Error(`Inline comment "${commentId}" was not found on ticket "${id}"`)
+    }
+    comments[index] = { ...comments[index], resolved }
+    await writeJsonArray(this.reviewPath(id), comments)
+    return comments[index]
   }
 
   private async listTicketIds(): Promise<string[]> {

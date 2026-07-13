@@ -53,6 +53,45 @@ export interface HistoryEntry {
   note?: string
 }
 
+/**
+ * An inline comment anchored to a specific line of a specific file, at the commit the
+ * ticket's branch was at when the comment was made. Stored as a mutable JSON array
+ * (`review.json`) rather than an append-only log, since resolving a thread edits it in place.
+ */
+export interface InlineComment {
+  id: string
+  filePath: string
+  line: number
+  /** The ticket branch's commit sha when this comment was made - used to detect staleness. */
+  anchorSha: string
+  author: Actor
+  body: string
+  createdAt: string
+  resolved: boolean
+}
+
+/** An inline comment plus whether its file has changed since it was anchored. */
+export interface InlineCommentView extends InlineComment {
+  stale: boolean
+}
+
+export type DiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed'
+
+export interface DiffFile {
+  path: string
+  oldPath?: string
+  status: DiffFileStatus
+  patch: string
+}
+
+export interface TicketDiff {
+  baseBranch: string
+  branch: string
+  /** The branch tip this diff was computed against - used to anchor inline comments. */
+  branchSha: string
+  files: DiffFile[]
+}
+
 /** `runs/<run-id>/meta.yaml` — populated fully once agent execution lands (Phase 5). */
 export interface RunMeta {
   id: string

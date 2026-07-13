@@ -4,6 +4,11 @@ import type { NewTicketInput } from '../shared/hive/types'
 import { IPC_CHANNELS, type TicketUpdateInput } from '../shared/ipc'
 import { findRepoRoot } from './hive/paths'
 import { HiveRepo } from './hive/repo'
+import {
+  addInlineCommentAtCurrentTip,
+  getTicketDiffOrNull,
+  listInlineCommentsWithStaleness
+} from './hive/review'
 import { applyTransition, checkBaseDrift, rebaseTicketOntoBase } from './hive/workflow'
 import { getActiveRepo, setActiveRepo } from './hive-session'
 
@@ -64,5 +69,25 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.rebaseTicketOntoBase, async (_event, ticketId: string) =>
     rebaseTicketOntoBase(getActiveRepo(), ticketId)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.getTicketDiff, async (_event, ticketId: string) =>
+    getTicketDiffOrNull(getActiveRepo(), ticketId)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.listInlineComments, async (_event, ticketId: string) =>
+    listInlineCommentsWithStaleness(getActiveRepo(), ticketId)
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.addInlineComment,
+    async (_event, ticketId: string, input: { filePath: string; line: number; body: string }) =>
+      addInlineCommentAtCurrentTip(getActiveRepo(), ticketId, input)
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.setInlineCommentResolved,
+    async (_event, ticketId: string, commentId: string, resolved: boolean) =>
+      getActiveRepo().setInlineCommentResolved(ticketId, commentId, resolved)
   )
 }
