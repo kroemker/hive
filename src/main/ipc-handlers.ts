@@ -1,7 +1,11 @@
 import { dialog, ipcMain } from 'electron'
+import type { AgentEvent } from '../shared/hive/agent'
 import type { TicketStatus } from '../shared/hive/state-machine'
 import type { NewTicketInput } from '../shared/hive/types'
 import { IPC_CHANNELS, type TicketUpdateInput } from '../shared/ipc'
+import { broadcastToAllWindows } from './broadcast'
+import { runAgentAndAdvance } from './hive/agent-orchestrator'
+import { ClaudeCodeProvider } from './hive/claude-code-provider'
 import { findRepoRoot } from './hive/paths'
 import { HiveRepo } from './hive/repo'
 import {
@@ -10,7 +14,39 @@ import {
   listInlineCommentsWithStaleness
 } from './hive/review'
 import { applyTransition, checkBaseDrift, rebaseTicketOntoBase } from './hive/workflow'
-import { getActiveRepo, setActiveRepo } from './hive-session'
+import {
+  cancelActiveRun,
+  clearActiveRun,
+  getActiveRepo,
+  registerActiveRun,
+  setActiveRepo
+} from './hive-session'
+
+const claudeCodeProvider = new ClaudeCodeProvider()
+
+/** Kicks off an agent run for a ticket that's just entered `implementation`, streaming
+ * events to every window and letting the run be cancelled without blocking the caller. */
+function startAgentRunInBackground(repo: HiveRepo, ticketId: string): void {
+  const controller = registerActiveRun(ticketId)
+  let runId = ''
+
+  runAgentAndAdvance(repo, claudeCodeProvider, ticketId, {
+    signal: controller.signal,
+    onRunStarted: (id) => {
+      runId = id
+    },
+    onEvent: (event: AgentEvent) => {
+      broadcastToAllWindows(IPC_CHANNELS.agentEvent, { ticketId, runId, event })
+    }
+  })
+    .catch((err: unknown) => {
+      console.error(`Agent run failed for ticket ${ticketId}:`, err)
+    })
+    .finally(() => {
+      clearActiveRun(ticketId)
+      broadcastToAllWindows(IPC_CHANNELS.ticketChanged, { ticketId })
+    })
+}
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.pickRepoFolder, async () => {
@@ -47,8 +83,14 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(
     IPC_CHANNELS.transitionTicket,
-    async (_event, id: string, to: TicketStatus, note?: string) =>
-      applyTransition(getActiveRepo(), id, to, note ? { note } : undefined)
+    async (_event, id: string, to: TicketStatus, note?: string) => {
+      const repo = getActiveRepo()
+      const ticket = await applyTransition(repo, id, to, note ? { note } : undefined)
+      if (to === 'implementation') {
+        startAgentRunInBackground(repo, id)
+      }
+      return ticket
+    }
   )
 
   ipcMain.handle(IPC_CHANNELS.listComments, async (_event, ticketId: string) =>
@@ -89,5 +131,17 @@ export function registerIpcHandlers(): void {
     IPC_CHANNELS.setInlineCommentResolved,
     async (_event, ticketId: string, commentId: string, resolved: boolean) =>
       getActiveRepo().setInlineCommentResolved(ticketId, commentId, resolved)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.listRuns, async (_event, ticketId: string) =>
+    getActiveRepo().listRuns(ticketId)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.getRunTranscript, async (_event, ticketId: string, runId: string) =>
+    getActiveRepo().getRunTranscript(ticketId, runId)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.cancelRun, async (_event, ticketId: string) =>
+    cancelActiveRun(ticketId)
   )
 }

@@ -5,6 +5,7 @@ import {
   type TicketStatus
 } from '../../../shared/hive/state-machine'
 import type { Comment, HistoryEntry, Priority, Ticket } from '../../../shared/hive/types'
+import AgentRunsPanel from './AgentRunsPanel'
 import DiffReview from './DiffReview'
 
 interface TicketDetailProps {
@@ -55,6 +56,14 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
+
+  useEffect(() => {
+    return window.hive.onTicketChanged((message) => {
+      if (message.ticketId === ticketId) {
+        load()
+      }
+    })
+  }, [ticketId, load])
 
   async function handleSave(): Promise<void> {
     setBusy(true)
@@ -222,6 +231,8 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
             ))}
           </div>
         </section>
+
+        <AgentRunsPanel ticketId={ticket.id} />
 
         <section>
           <h3>Comments</h3>

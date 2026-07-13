@@ -1,5 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC_CHANNELS, type HiveApi } from '../shared/ipc'
+import {
+  IPC_CHANNELS,
+  type AgentEventMessage,
+  type HiveApi,
+  type TicketChangedMessage
+} from '../shared/ipc'
 
 const api: HiveApi = {
   pickRepoFolder: () => ipcRenderer.invoke(IPC_CHANNELS.pickRepoFolder),
@@ -20,7 +25,23 @@ const api: HiveApi = {
   addInlineComment: (ticketId, input) =>
     ipcRenderer.invoke(IPC_CHANNELS.addInlineComment, ticketId, input),
   setInlineCommentResolved: (ticketId, commentId, resolved) =>
-    ipcRenderer.invoke(IPC_CHANNELS.setInlineCommentResolved, ticketId, commentId, resolved)
+    ipcRenderer.invoke(IPC_CHANNELS.setInlineCommentResolved, ticketId, commentId, resolved),
+  listRuns: (ticketId) => ipcRenderer.invoke(IPC_CHANNELS.listRuns, ticketId),
+  getRunTranscript: (ticketId, runId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.getRunTranscript, ticketId, runId),
+  cancelRun: (ticketId) => ipcRenderer.invoke(IPC_CHANNELS.cancelRun, ticketId),
+  onAgentEvent: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, message: AgentEventMessage): void =>
+      listener(message)
+    ipcRenderer.on(IPC_CHANNELS.agentEvent, handler)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.agentEvent, handler)
+  },
+  onTicketChanged: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, message: TicketChangedMessage): void =>
+      listener(message)
+    ipcRenderer.on(IPC_CHANNELS.ticketChanged, handler)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.ticketChanged, handler)
+  }
 }
 
 contextBridge.exposeInMainWorld('hive', api)

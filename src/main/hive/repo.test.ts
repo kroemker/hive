@@ -209,4 +209,75 @@ describe('HiveRepo', () => {
       repo.setInlineCommentResolved(ticket.id, 'no-such-comment', true)
     ).rejects.toThrow(/not found/)
   })
+
+  it('starts a run, writes its prompt, and bumps the ticket run counter', async () => {
+    const repo = await HiveRepo.init(repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+
+    const run = await repo.startRun(ticket.id, {
+      agent: 'claude-code',
+      model: 'claude-opus-4-8',
+      prompt: '# ticket-1: Add dark mode\n\nDo the thing.'
+    })
+
+    expect(run.agent).toBe('claude-code')
+    expect(run.startedAt).toBeTruthy()
+
+    const updated = await repo.getTicket(ticket.id)
+    expect(updated?.runCount).toBe(1)
+
+    const promptRaw = await readFile(
+      join(repoRoot, '.hive', 'tickets', ticket.id, 'runs', run.id, 'prompt.md'),
+      'utf8'
+    )
+    expect(promptRaw).toContain('Do the thing.')
+  })
+
+  it('startRun throws TicketNotFoundError for an unknown id', async () => {
+    const repo = await HiveRepo.init(repoRoot)
+    await expect(
+      repo.startRun('ticket-404', { agent: 'claude-code', prompt: 'x' })
+    ).rejects.toBeInstanceOf(TicketNotFoundError)
+  })
+
+  it('appends transcript lines and finishes a run with outcome/usage', async () => {
+    const repo = await HiveRepo.init(repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+    const run = await repo.startRun(ticket.id, { agent: 'claude-code', prompt: 'x' })
+
+    await repo.appendRunTranscript(ticket.id, run.id, 'started working')
+    await repo.appendRunTranscript(ticket.id, run.id, 'made a commit')
+
+    const finished = await repo.finishRun(ticket.id, run.id, {
+      endedAt: new Date().toISOString(),
+      outcome: 'success',
+      tokensInput: 100,
+      tokensOutput: 50,
+      costUsd: 0.02
+    })
+
+    expect(finished.outcome).toBe('success')
+    expect(finished.costUsd).toBe(0.02)
+
+    const transcript = await repo.getRunTranscript(ticket.id, run.id)
+    expect(transcript).toBe('started working\nmade a commit\n')
+  })
+
+  it('lists runs sorted by start time', async () => {
+    const repo = await HiveRepo.init(repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+    await repo.startRun(ticket.id, { agent: 'claude-code', prompt: 'first' })
+    await repo.startRun(ticket.id, { agent: 'claude-code', prompt: 'second' })
+
+    const runs = await repo.listRuns(ticket.id)
+    expect(runs).toHaveLength(2)
+    expect(runs[0].startedAt <= runs[1].startedAt).toBe(true)
+  })
+
+  it('getRunTranscript returns an empty string for a run with no transcript yet', async () => {
+    const repo = await HiveRepo.init(repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+    const run = await repo.startRun(ticket.id, { agent: 'claude-code', prompt: 'x' })
+    expect(await repo.getRunTranscript(ticket.id, run.id)).toBe('')
+  })
 })

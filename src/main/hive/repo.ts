@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { canTransition, type TicketStatus } from '../../shared/hive/state-machine'
 import type {
@@ -8,6 +8,7 @@ import type {
   HiveConfig,
   InlineComment,
   NewTicketInput,
+  RunMeta,
   Ticket
 } from '../../shared/hive/types'
 import { DEFAULT_HIVE_CONFIG } from '../../shared/hive/types'
@@ -16,6 +17,7 @@ import { nextTicketId, randomId } from './ids'
 import { appendJsonl, readJsonl } from './jsonl'
 import { readJsonArray, writeJsonArray } from './json-file'
 import { pathExists } from './paths'
+import { readRunMeta, writeRunMeta } from './run-store'
 import { parseTicketFile, serializeTicketFile } from './ticket-file'
 
 export class TicketNotFoundError extends Error {
@@ -71,6 +73,14 @@ export class HiveRepo {
 
   private reviewPath(id: string): string {
     return join(this.ticketDir(id), 'review.json')
+  }
+
+  private runsDir(id: string): string {
+    return join(this.ticketDir(id), 'runs')
+  }
+
+  private runDir(id: string, runId: string): string {
+    return join(this.runsDir(id), runId)
   }
 
   /** Creates `.hive/` (and a default config) if one doesn't already exist. */
@@ -155,7 +165,7 @@ export class HiveRepo {
 
   async updateTicket(
     id: string,
-    patch: Partial<Pick<Ticket, 'title' | 'body' | 'labels' | 'priority' | 'branch'>>
+    patch: Partial<Pick<Ticket, 'title' | 'body' | 'labels' | 'priority' | 'branch' | 'runCount'>>
   ): Promise<Ticket> {
     const ticket = await this.getTicket(id)
     if (!ticket) {
@@ -252,6 +262,81 @@ export class HiveRepo {
     comments[index] = { ...comments[index], resolved }
     await writeJsonArray(this.reviewPath(id), comments)
     return comments[index]
+  }
+
+  /** Starts a new agent run: allocates a run id, writes the prompt, bumps runCount. */
+  async startRun(
+    id: string,
+    input: { agent: string; model?: string; prompt: string }
+  ): Promise<RunMeta> {
+    const ticket = await this.getTicket(id)
+    if (!ticket) {
+      throw new TicketNotFoundError(id)
+    }
+    const runId = randomId()
+    const dir = this.runDir(id, runId)
+    await mkdir(dir, { recursive: true })
+    await writeFile(join(dir, 'prompt.md'), input.prompt, 'utf8')
+    await writeFile(join(dir, 'transcript.log'), '', 'utf8')
+
+    const meta: RunMeta = {
+      id: runId,
+      agent: input.agent,
+      model: input.model,
+      startedAt: new Date().toISOString()
+    }
+    await writeRunMeta(join(dir, 'meta.yaml'), meta)
+    await this.updateTicket(id, { runCount: ticket.runCount + 1 })
+    return meta
+  }
+
+  async appendRunTranscript(id: string, runId: string, line: string): Promise<void> {
+    await appendFile(join(this.runDir(id, runId), 'transcript.log'), `${line}\n`, 'utf8')
+  }
+
+  async finishRun(
+    id: string,
+    runId: string,
+    patch: Partial<Pick<RunMeta, 'endedAt' | 'outcome' | 'tokensInput' | 'tokensOutput' | 'costUsd'>>
+  ): Promise<RunMeta> {
+    const metaPath = join(this.runDir(id, runId), 'meta.yaml')
+    const current = await readRunMeta(metaPath)
+    if (!current) {
+      throw new Error(`Run "${runId}" was not found on ticket "${id}"`)
+    }
+    const updated: RunMeta = { ...current, ...patch }
+    await writeRunMeta(metaPath, updated)
+    return updated
+  }
+
+  async listRuns(id: string): Promise<RunMeta[]> {
+    let runIds: string[]
+    try {
+      const entries = await readdir(this.runsDir(id), { withFileTypes: true })
+      runIds = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return []
+      }
+      throw err
+    }
+    const metas = await Promise.all(
+      runIds.map((runId) => readRunMeta(join(this.runDir(id, runId), 'meta.yaml')))
+    )
+    return metas
+      .filter((meta): meta is RunMeta => meta !== null)
+      .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+  }
+
+  async getRunTranscript(id: string, runId: string): Promise<string> {
+    try {
+      return await readFile(join(this.runDir(id, runId), 'transcript.log'), 'utf8')
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return ''
+      }
+      throw err
+    }
   }
 
   private async listTicketIds(): Promise<string[]> {

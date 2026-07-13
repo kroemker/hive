@@ -42,6 +42,12 @@ function Board({ repoRoot, onCloseRepo }: BoardProps) {
     refresh()
   }, [refresh])
 
+  useEffect(() => {
+    return window.hive.onTicketChanged(() => {
+      refresh()
+    })
+  }, [refresh])
+
   return (
     <div className="board">
       <header className="board-header">

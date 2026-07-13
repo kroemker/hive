@@ -1,3 +1,4 @@
+import type { AgentEvent } from './hive/agent'
 import type { TicketStatus } from './hive/state-machine'
 import type {
   Comment,
@@ -5,6 +6,7 @@ import type {
   InlineComment,
   InlineCommentView,
   NewTicketInput,
+  RunMeta,
   Ticket,
   TicketDiff
 } from './hive/types'
@@ -25,8 +27,25 @@ export const IPC_CHANNELS = {
   getTicketDiff: 'tickets:get-diff',
   listInlineComments: 'review:list-comments',
   addInlineComment: 'review:add-comment',
-  setInlineCommentResolved: 'review:set-comment-resolved'
+  setInlineCommentResolved: 'review:set-comment-resolved',
+  listRuns: 'agent:list-runs',
+  getRunTranscript: 'agent:get-run-transcript',
+  cancelRun: 'agent:cancel-run',
+  agentEvent: 'agent:event',
+  ticketChanged: 'tickets:changed'
 } as const
+
+/** Pushed from main to renderer while a run is in progress (not request/response). */
+export interface AgentEventMessage {
+  ticketId: string
+  runId: string
+  event: AgentEvent
+}
+
+/** Pushed whenever a background agent run changes a ticket, so open views can refresh. */
+export interface TicketChangedMessage {
+  ticketId: string
+}
 
 export type TicketUpdateInput = Partial<Pick<Ticket, 'title' | 'body' | 'labels' | 'priority'>>
 
@@ -63,4 +82,12 @@ export interface HiveApi {
     commentId: string,
     resolved: boolean
   ) => Promise<InlineComment>
+  listRuns: (ticketId: string) => Promise<RunMeta[]>
+  getRunTranscript: (ticketId: string, runId: string) => Promise<string>
+  /** Aborts the ticket's in-flight agent run, if any. Returns false if none was running. */
+  cancelRun: (ticketId: string) => Promise<boolean>
+  /** Subscribes to live agent-run events; returns an unsubscribe function. */
+  onAgentEvent: (listener: (message: AgentEventMessage) => void) => () => void
+  /** Subscribes to background ticket changes (e.g. an agent run finishing); returns an unsubscribe function. */
+  onTicketChanged: (listener: (message: TicketChangedMessage) => void) => () => void
 }
