@@ -1,6 +1,6 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
-import { IPC_CHANNELS } from '../shared/ipc'
+import { app, BrowserWindow } from 'electron'
+import { registerIpcHandlers } from './ipc-handlers'
 
 const isDev = !app.isPackaged
 
@@ -27,15 +27,8 @@ function createWindow(): BrowserWindow {
   return window
 }
 
-ipcMain.handle(IPC_CHANNELS.pickRepoFolder, async () => {
-  const result = await dialog.showOpenDialog({ properties: ['openDirectory'] })
-  if (result.canceled || result.filePaths.length === 0) {
-    return null
-  }
-  return result.filePaths[0]
-})
-
 app.whenReady().then(() => {
+  registerIpcHandlers()
   createWindow()
 
   app.on('activate', () => {
