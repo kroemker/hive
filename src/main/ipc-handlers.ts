@@ -1,8 +1,11 @@
 import { dialog, ipcMain } from 'electron'
-import { IPC_CHANNELS } from '../shared/ipc'
-import { HiveRepo } from './hive/repo'
-import { getActiveRepo, setActiveRepo } from './hive-session'
+import type { TicketStatus } from '../shared/hive/state-machine'
+import type { NewTicketInput } from '../shared/hive/types'
+import { IPC_CHANNELS, type TicketUpdateInput } from '../shared/ipc'
 import { findRepoRoot } from './hive/paths'
+import { HiveRepo } from './hive/repo'
+import { applyTransition } from './hive/workflow'
+import { getActiveRepo, setActiveRepo } from './hive-session'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.pickRepoFolder, async () => {
@@ -28,20 +31,19 @@ export function registerIpcHandlers(): void {
     getActiveRepo().getTicket(id)
   )
 
-  ipcMain.handle(IPC_CHANNELS.createTicket, async (_event, input: Parameters<HiveRepo['createTicket']>[0]) =>
+  ipcMain.handle(IPC_CHANNELS.createTicket, async (_event, input: NewTicketInput) =>
     getActiveRepo().createTicket(input)
   )
 
   ipcMain.handle(
     IPC_CHANNELS.updateTicket,
-    async (_event, id: string, patch: Parameters<HiveRepo['updateTicket']>[1]) =>
-      getActiveRepo().updateTicket(id, patch)
+    async (_event, id: string, patch: TicketUpdateInput) => getActiveRepo().updateTicket(id, patch)
   )
 
   ipcMain.handle(
     IPC_CHANNELS.transitionTicket,
-    async (_event, id: string, to: Parameters<HiveRepo['transitionTicket']>[1], note?: string) =>
-      getActiveRepo().transitionTicket(id, to, note ? { note } : undefined)
+    async (_event, id: string, to: TicketStatus, note?: string) =>
+      applyTransition(getActiveRepo(), id, to, note ? { note } : undefined)
   )
 
   ipcMain.handle(IPC_CHANNELS.listComments, async (_event, ticketId: string) =>

@@ -149,7 +149,7 @@ export class HiveRepo {
 
   async updateTicket(
     id: string,
-    patch: Partial<Pick<Ticket, 'title' | 'body' | 'labels' | 'priority'>>
+    patch: Partial<Pick<Ticket, 'title' | 'body' | 'labels' | 'priority' | 'branch'>>
   ): Promise<Ticket> {
     const ticket = await this.getTicket(id)
     if (!ticket) {
