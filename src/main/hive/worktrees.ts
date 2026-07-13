@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import type { Ticket } from '../../shared/hive/types'
-import { runGit } from './git'
+import { GitError, runGit } from './git'
 import { slugify } from './slug'
 
 export function branchNameForTicket(ticket: Pick<Ticket, 'id' | 'title'>): string {
@@ -55,4 +55,24 @@ export async function countCommitsBaseIsAhead(
 ): Promise<number> {
   const { stdout } = await runGit(['rev-list', '--count', `${branch}..${baseBranch}`], repoRoot)
   return Number(stdout.trim())
+}
+
+export class RebaseConflictError extends Error {
+  constructor(public readonly baseBranch: string) {
+    super(`Rebasing onto "${baseBranch}" hit conflicts that need resolving first`)
+    this.name = 'RebaseConflictError'
+  }
+}
+
+/** Replays a ticket's own branch onto the latest base, aborting cleanly on conflict. */
+export async function rebaseBranchOntoBase(worktreePath: string, baseBranch: string): Promise<void> {
+  try {
+    await runGit(['rebase', baseBranch], worktreePath)
+  } catch (err) {
+    await runGit(['rebase', '--abort'], worktreePath).catch(() => {})
+    if (err instanceof GitError) {
+      throw new RebaseConflictError(baseBranch)
+    }
+    throw err
+  }
 }

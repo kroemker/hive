@@ -11,7 +11,10 @@ const api: HiveApi = {
   transitionTicket: (id, to, note) => ipcRenderer.invoke(IPC_CHANNELS.transitionTicket, id, to, note),
   listComments: (ticketId) => ipcRenderer.invoke(IPC_CHANNELS.listComments, ticketId),
   addComment: (ticketId, body) => ipcRenderer.invoke(IPC_CHANNELS.addComment, ticketId, body),
-  listHistory: (ticketId) => ipcRenderer.invoke(IPC_CHANNELS.listHistory, ticketId)
+  listHistory: (ticketId) => ipcRenderer.invoke(IPC_CHANNELS.listHistory, ticketId),
+  checkBaseDrift: (ticketId) => ipcRenderer.invoke(IPC_CHANNELS.checkBaseDrift, ticketId),
+  rebaseTicketOntoBase: (ticketId) =>
+    ipcRenderer.invoke(IPC_CHANNELS.rebaseTicketOntoBase, ticketId)
 }
 
 contextBridge.exposeInMainWorld('hive', api)

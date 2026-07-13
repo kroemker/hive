@@ -4,7 +4,7 @@ import type { NewTicketInput } from '../shared/hive/types'
 import { IPC_CHANNELS, type TicketUpdateInput } from '../shared/ipc'
 import { findRepoRoot } from './hive/paths'
 import { HiveRepo } from './hive/repo'
-import { applyTransition } from './hive/workflow'
+import { applyTransition, checkBaseDrift, rebaseTicketOntoBase } from './hive/workflow'
 import { getActiveRepo, setActiveRepo } from './hive-session'
 
 export function registerIpcHandlers(): void {
@@ -56,5 +56,13 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.listHistory, async (_event, ticketId: string) =>
     getActiveRepo().listHistory(ticketId)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.checkBaseDrift, async (_event, ticketId: string) =>
+    checkBaseDrift(getActiveRepo(), ticketId)
+  )
+
+  ipcMain.handle(IPC_CHANNELS.rebaseTicketOntoBase, async (_event, ticketId: string) =>
+    rebaseTicketOntoBase(getActiveRepo(), ticketId)
   )
 }

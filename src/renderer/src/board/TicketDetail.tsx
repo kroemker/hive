@@ -21,6 +21,7 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
   const [labels, setLabels] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
   const [newComment, setNewComment] = useState('')
+  const [baseDrift, setBaseDrift] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -38,6 +39,11 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
       setBody(loadedTicket.body)
       setLabels(loadedTicket.labels.join(', '))
       setPriority(loadedTicket.priority)
+      setBaseDrift(
+        loadedTicket.branch && loadedTicket.status !== 'resolved'
+          ? await window.hive.checkBaseDrift(ticketId)
+          : 0
+      )
     }
   }, [ticketId])
 
@@ -77,6 +83,19 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
       await window.hive.transitionTicket(ticketId, to)
       await load()
       onChanged()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleRebase(): Promise<void> {
+    setBusy(true)
+    setError(null)
+    try {
+      await window.hive.rebaseTicketOntoBase(ticketId)
+      await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -130,6 +149,18 @@ function TicketDetail({ ticketId, onClose, onChanged }: TicketDetailProps) {
             Close
           </button>
         </header>
+
+        {baseDrift > 0 && (
+          <div className="drift-warning">
+            <p>
+              Base has moved {baseDrift} commit{baseDrift === 1 ? '' : 's'} ahead since this
+              branch was created.
+            </p>
+            <button type="button" className="secondary" onClick={handleRebase} disabled={busy}>
+              Rebase onto base
+            </button>
+          </div>
+        )}
 
         <label>
           Title

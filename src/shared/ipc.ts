@@ -11,7 +11,9 @@ export const IPC_CHANNELS = {
   transitionTicket: 'tickets:transition',
   listComments: 'comments:list',
   addComment: 'comments:add',
-  listHistory: 'history:list'
+  listHistory: 'history:list',
+  checkBaseDrift: 'tickets:check-base-drift',
+  rebaseTicketOntoBase: 'tickets:rebase-onto-base'
 } as const
 
 export type TicketUpdateInput = Partial<Pick<Ticket, 'title' | 'body' | 'labels' | 'priority'>>
@@ -33,4 +35,8 @@ export interface HiveApi {
   listComments: (ticketId: string) => Promise<Comment[]>
   addComment: (ticketId: string, body: string) => Promise<Comment>
   listHistory: (ticketId: string) => Promise<HistoryEntry[]>
+  /** How many commits the base branch has gained since this ticket's branch forked. */
+  checkBaseDrift: (ticketId: string) => Promise<number>
+  /** Replays a ticket's branch onto the latest base, without changing its status. */
+  rebaseTicketOntoBase: (ticketId: string) => Promise<void>
 }

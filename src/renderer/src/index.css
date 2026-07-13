@@ -286,6 +286,22 @@ label {
   gap: 0.5rem;
 }
 
+.drift-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: rgba(165, 112, 31, 0.12);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.drift-warning p {
+  margin: 0;
+}
+
 .comment-list,
 .history-list {
   list-style: none;

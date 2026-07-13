@@ -5,8 +5,10 @@ import { pathExists } from './paths'
 import { HiveRepo, TicketNotFoundError } from './repo'
 import {
   branchNameForTicket,
+  countCommitsBaseIsAhead,
   createWorktree,
   reattachWorktree,
+  rebaseBranchOntoBase,
   removeWorktree,
   worktreePathForTicket
 } from './worktrees'
@@ -55,6 +57,30 @@ async function ensureWorktree(repo: HiveRepo, ticket: Ticket): Promise<void> {
   const branch = branchNameForTicket(ticket)
   await createWorktree(repo.repoRoot, worktreePath, branch, config.baseBranch)
   await repo.updateTicket(ticket.id, { branch })
+}
+
+/** How many commits the base branch has gained since this ticket's branch forked. */
+export async function checkBaseDrift(repo: HiveRepo, ticketId: string): Promise<number> {
+  const ticket = await repo.getTicket(ticketId)
+  if (!ticket?.branch) {
+    return 0
+  }
+  const config = await repo.getConfig()
+  return countCommitsBaseIsAhead(repo.repoRoot, ticket.branch, config.baseBranch)
+}
+
+/** Replays a ticket's branch onto the latest base, without touching its status. */
+export async function rebaseTicketOntoBase(repo: HiveRepo, ticketId: string): Promise<void> {
+  const ticket = await repo.getTicket(ticketId)
+  if (!ticket) {
+    throw new TicketNotFoundError(ticketId)
+  }
+  if (!ticket.branch) {
+    throw new Error(`Ticket "${ticketId}" has no branch/worktree yet`)
+  }
+  const config = await repo.getConfig()
+  const worktreePath = worktreePathForTicket(repo.repoRoot, ticket.id)
+  await rebaseBranchOntoBase(worktreePath, config.baseBranch)
 }
 
 async function resolveTicket(repo: HiveRepo, ticket: Ticket): Promise<void> {

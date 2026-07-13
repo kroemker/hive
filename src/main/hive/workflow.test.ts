@@ -5,7 +5,7 @@ import { createFixtureRepo, type FixtureRepo } from './fixture-repo'
 import { runGit } from './git'
 import { pathExists } from './paths'
 import { HiveRepo } from './repo'
-import { applyTransition } from './workflow'
+import { applyTransition, checkBaseDrift, rebaseTicketOntoBase } from './workflow'
 import { worktreePathForTicket } from './worktrees'
 
 async function commitInWorktree(worktreePath: string, fileName: string, content: string): Promise<void> {
@@ -123,5 +123,44 @@ describe('applyTransition', () => {
     const ticketAfter = await repo.getTicket(ticket.id)
     expect(ticketAfter?.status).toBe('ready-for-test')
     expect(await pathExists(worktreePath)).toBe(true)
+  })
+})
+
+describe('checkBaseDrift and rebaseTicketOntoBase', () => {
+  let fixture: FixtureRepo | undefined
+
+  afterEach(async () => {
+    await fixture?.cleanup()
+    fixture = undefined
+  })
+
+  it('is 0 for a ticket with no branch yet', async () => {
+    fixture = await createFixtureRepo()
+    const repo = await HiveRepo.init(fixture.repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+
+    expect(await checkBaseDrift(repo, ticket.id)).toBe(0)
+  })
+
+  it('reports how many commits base has gained, and rebase clears it', async () => {
+    fixture = await createFixtureRepo()
+    const repo = await HiveRepo.init(fixture.repoRoot)
+    const ticket = await repo.createTicket({ title: 'Add dark mode', type: 'code' })
+    await repo.transitionTicket(ticket.id, 'ready-for-implementation')
+    await applyTransition(repo, ticket.id, 'implementation')
+    const worktreePath = worktreePathForTicket(fixture.repoRoot, ticket.id)
+    await commitInWorktree(worktreePath, 'feature.txt', 'ticket work\n')
+
+    await writeFile(join(fixture.repoRoot, 'other.txt'), 'unrelated\n', 'utf8')
+    await runGit(['add', 'other.txt'], fixture.repoRoot)
+    await runGit(['commit', '-q', '-m', 'unrelated main commit'], fixture.repoRoot)
+
+    expect(await checkBaseDrift(repo, ticket.id)).toBe(1)
+
+    await rebaseTicketOntoBase(repo, ticket.id)
+
+    expect(await checkBaseDrift(repo, ticket.id)).toBe(0)
+    expect(await readFile(join(worktreePath, 'other.txt'), 'utf8')).toBe('unrelated\n')
+    expect(await readFile(join(worktreePath, 'feature.txt'), 'utf8')).toBe('ticket work\n')
   })
 })
