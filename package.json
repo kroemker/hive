@@ -2,6 +2,7 @@
   "name": "hive",
   "version": "0.1.0",
   "description": "A local kanban board for a git repo, with tickets that automated coding agents can pick up.",
+  "author": "Hive contributors",
   "private": true,
   "main": "./out/main/index.js",
   "engines": {
@@ -17,9 +18,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "pretest:e2e": "electron-vite build",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "predist": "electron-vite build",
+    "dist": "electron-builder",
+    "dist:linux": "npm run predist && electron-builder --linux",
+    "dist:mac": "npm run predist && electron-builder --mac",
+    "dist:win": "npm run predist && electron-builder --win"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.207",
+    "js-yaml": "^5.2.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
@@ -31,6 +39,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.2.0",
     "electron": "^43.1.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
     "eslint": "^10.7.0",
     "eslint-config-prettier": "^10.1.8",
